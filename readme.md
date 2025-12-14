@@ -1,173 +1,143 @@
-# CEIA – Proyecto MLOps
-<<<<<<< Updated upstream
+Markdown## Machine Learning Operations 1
+## CEIA - FIUBA
+## 5º Bimestre 2025
 
-Repositorio del TP de MLOps – Especialización en IA (CEIA - UBA).
+## Trabajo Práctico Final
+
+### Grupo
 
 Autor: Juan Nervi
-
-Contiene:
-- Infraestructura Docker
-- Apache Airflow
-- MLflow
-- Servicios de inferencia
-- Notebooks de experimentación
-
-## Arquitectura del proyecto
-
-El proyecto levanta un stack de MLOps simple basado en **Docker Compose** con:
-
-- **Airflow**: orquestador de workflows (entrenamiento, evaluación, deployment). docker pull apache/airflow:2.10.2
-- **MLflow**: tracking de experimentos y modelos.
-- **MinIO (S3 compatible)**: storage de artefactos (modelos, datasets, outputs).
-- **Postgres**: base de datos para Airflow y backend de MLflow.
-- **Rain Predictor Service**: servicio de inferencia (API) que consume el modelo registrado.
-
-### 9.1. Diagrama lógico
-
-```text
-                 ┌───────────────────────────────┐
-                 │           Airflow             │
-                 │  (webserver + scheduler)      │
-                 └──────────────┬────────────────┘
-                                │
-                                │ orquesta DAGs
-                                │
-        ┌───────────────────────┴───────────────────────────────┐
-        │                                                       │
-        v                                                       v
-┌───────────────────────┐                           ┌───────────────────────┐
-│        MLflow         │                           │        Postgres       │
-│  - UI tracking         │<------------------------->│  - DB Airflow         │
-│  - Registry modelos    │     conexión SQL          │  - DB MLflow backend  │
-└─────────┬─────────────┘                           └───────────────────────┘
-          │
-          │ guarda artefactos (modelos, metrics files, etc.)
-          v
-┌───────────────────────┐
-│         MinIO         │
-│  (S3 compatible)      │
-│  - bucket mlflow      │
-│  - bucket data        │
-└─────────┬─────────────┘
-          │
-          │ lee el modelo "en producción"
-          v
-┌──────────────────────────────┐
-│  Fuel Channel Diameter API   │
-│   (diameter-predictor)       │
-│  - llama a MLflow            │
-│  - descarga modelo           │
-│  - sirve predicciones        │
-└──────────────────────────────┘
-
-
-
-
-
-
-
-
-
-
-
-# Miscelaneas
-Para lanzar el docker compose, en un power shell lanzar: docker compose up -d
-  
-docker compose up postgres s3 -d 
-docker compose  up airflow-init airflow-scheduler airflow-cli minio-bucket-init airflow-webserver -d
-
-
-## Pipeline de instalación y ejecución
-
-### 1. Prerrequisitos
-
-- **Git**
-- **Docker Desktop** (con al menos **4 GB de RAM** asignados al engine)
-- **VS Code** 
 
 ---
+# **DIAMETRAL DEFORMATION PREDICTION IN CNE NPP PRESSURE TUBES**: an AI solution for outer diameter rate forecasting
 
-### 2. Descargar o actualizar el repositorio
+## Descripción
 
-#### Primera vez (clonar)
+El presente servicio representa una solución basada en IA para la predicción confiable de la tasa de deformación diametral (**MeanRateOutDiam**) en tubos de presión de la Central Nuclear Embalse (CNE), Argentina, durante la Inspección en Servicio ISI 2024.
 
-```bash
-# Ir a la carpeta donde quieras clonar el proyecto
-cd C:\Users\<TU_USUARIO>\Documents
+El modelo utiliza mediciones de diámetro interno, espesor, flujo neutrónico extendido, presión y temperatura para predecir la evolución de la deformación. El usuario selecciona un canal (ej: E06) y el servicio devuelve la predicción completa a lo largo del tubo, junto con valores reales y métricas.
 
-# Clonar el repo
-git clone https://github.com/jern10/CEIA-mlops.git
+## Fuente
 
-# Entrar a la carpeta del proyecto
-cd CEIA-mlops
+Los datos provienen de mediciones reales ISI 2024 (diámetro y espesor por canal), bases de flujo neutrónico, perfiles de presión/temperatura BOL y datos de diseño de canales.
 
-cd C:\Users\<TU_USUARIO>\Documents\CEIA-mlops
-git pull origin main
+El pipeline ETL procesa ~380 canales, genera flujo extendido, unifica mediciones y enriquece con variables operativas.
 
-# airflow configuration
-AIRFLOW_UID=50000
-AIRFLOW_GID=0
-AIRFLOW_PROJ_DIR=./airflow
-AIRFLOW_PORT=8080
-_AIRFLOW_WWW_USER_USERNAME=airflow
-_AIRFLOW_WWW_USER_PASSWORD=airflow
+## Componentes del proyecto
 
-# postgres configuration
-# PG_USER=airflow
-# PG_PASSWORD=airflow
-# PG_DATABASE=airflow
-# PG_PORT=5433
+1. **Apache Airflow**  
+   - Orquestación del ETL completo: descarga de datos, procesamiento, enriquecimiento y generación de datasets.
 
-# mlflow configuration
-MLFLOW_PORT=5001
-# MLFLOW_BUCKET_NAME=
+2. **MLflow**  
+   - Tracking de experimentos, búsqueda de hiperparámetros (Optuna), registro de modelo con alias "champion".
 
-#levantar servicios
-docker compose up -d
-#ver estado de contenedores
-docker compose ps
+3. **MinIO**  
+   - Almacenamiento S3-compatibile de datos crudos, intermedios, procesados y artefactos MLflow.
 
-| Servicio           | URL / Host local                                       | Comentario                          |
-| ------------------ | ------------------------------------------------------ | ----------------------------------- |
-| **Airflow UI**     | [http://localhost:8080](http://localhost:8080)         | Usuario: `airflow`, pass: `airflow` |
-| **Postgres**       | `localhost:5433`                                       | DB: `airflow` (por defecto)         |
-| **MinIO (UI)**     | [http://localhost:9001](http://localhost:9001)         | Access key/secret en `.env`         |
-| **MinIO (S3 API)** | [http://localhost:9000](http://localhost:9000)         | Usado por MLflow y el servicio      |
-| **MLflow UI**      | [http://localhost:5000](http://localhost:5000) ó 5001* | Según cómo mapees `MLFLOW_PORT`     |
-
-| Servicio          | Host interno        | Puerto interno |
-| ----------------- | ------------------- | -------------- |
-| Postgres          | `postgres`          | `5432`         |
-| MinIO (S3)        | `s3`                | `9000`         |
-| MLflow            | `mlflow`            | `5000`/`5001`  |
-| Airflow webserver | `airflow_webserver` | `8080`         |
-
-#Apagar servicios
-docker compose down
-
-#borrar volumenes
-docker compose down -v
+4. **FastAPI**  
+   - Servicio de inferencia REST que carga el modelo champion y predice por canal.
 
 
-=======
 
-Repositorio del TP de MLOps – Especialización en IA (CEIA - UBA).
+## Flujo de interacción
 
-Autor: Juan Nervi
-
-Contiene:
-- Infraestructura Docker
-- Apache Airflow
-- MLflow
-- Servicios de inferencia
-- Notebooks de experimentación
+1. ETL Process
 
 
-# Notas
-Para lanzar el docker compose, en un power shell lanzar: docker compose up -d
-  
-    #docker compose up postgres s3 -d
-    #>> docker compose  up airflow-init airflow-scheduler airflow-cli minio-bucket-init airflow-webserver -d
->>>>>>> Stashed changes
+- Flujo de trabajo :
+upload_raw_data_zip >> generate_extended_flux >> process_and_enrich_all >> split_train_val_test >> generate_ml_datasets + generate_model_compatible_data
+- upload_raw_data_zip: Descarga única como ZIP desde GitHub y subida a S3 raw/.
+- generate_extended_flux: Ajuste de curvas para flujo neutrónico extendido por canal (~380 archivos .flx).
+- process_and_enrich_all: Unificación diámetro/espesor, interpolación, enriquecimiento con P/T/Flux, cálculo de tasas (MeanRateOutDiam, etc.).
+- split_train_val_test: División por canal (70% train, 10% val, 30% test).
+- generate_model_compatible_data: Genera data_by_ch.pkl, channel_list.csv y parquet por canal para inferencia rápida.
+
+2. Model Experimentation Process
+- Modelo base: CNN1D Regressor con contexto variable y downsampling.
+- Búsqueda de hiperparámetros con Optuna (60 trials), early stopping y ReduceLROnPlateau.
+- Entrenamiento final con mejores parámetros, evaluación en test y registro como "champion".
+
+3. Production Process
+- El usuario consulta la API FastAPI seleccionando un canal.
+- La API carga el modelo champion + scalers desde MLflow/MinIO.
+- Genera predicciones para todo el canal y devuelve resultados (JSON + gráficos opcionales).
+
+## Corriendo el servicio
+
+### Pre-requisitos de instalación
+
+- Git
+- Docker y Docker Compose
+
+Para notebooks:
+- Python 3.11+
+- Poetry o pip
+- Jupyter
+
+### Step 0: Clonar repositorio
+
+    ```bash
+    git clone https://github.com/jern10/CEIA-mlops.git
+    cd CEIA-mlops
+    ```
+
+###  Step 1: Inicializar el entorno (recomendado)
+El proyecto incluye un script setup.sh que configura todo el entorno automáticamente:
+
+    ```bash
+    ./setup.sh
+    ```
+
+###  Step 2: Ejecutar ETL y entrenamiento
+
+1. Accede a Airflow: http://localhost:8080 (user: airflow / pass: airflow)
+1. Trigger el DAG diametral_deformation_etl_optimized
+1. Una vez finalizado, ejecuta el notebook notebooks/HP_tuning.ipynb para entrenar y registrar el modelo
+
+###  Step 3: Levantar la API de predicción
+
+    ```bash
+    compose up diameter-predictor -d
+    ```
+
+Detalles de acceso
+
+1. Airflow
+- URL: http://localhost:8080
+- Credenciales: airflow / airflow
+
+1. MLflow
+- URL: http://localhost:5001
+
+1. MinIO
+- URL: http://localhost:9001
+- Credenciales: Access Key minio / Secret Key minio123
+
+1. FastAPI: Diameter Deformation Predictor
+- URL: http://localhost:8000
+- Documentación interactiva: http://localhost:8000/docs
 
 
+###  Step 4: Usar el predictor
+En http://localhost:8000/docs:
+
+- GET /channels → lista de canales disponibles
+- POST /predict → POST con {"channel": "E06"} → predicción completa (posiciones, real vs predicho, RMSE/MAE)
+
+## Corriendo experimentos
+###  Step 1: ETL process
+En Airflow UI, ejecutar el DAG diametral_deformation_etl_optimized.
+
+###  Step 2: Hyper-parameter tuning
+Desde la carpeta /notebooks:
+
+    ```bash
+    poetry run jupyter notebook
+    ```
+
+## Pendientes a futuro
+
+- Trigger automático de entrenamiento desde Airflow tras ETL.
+- Monitoreo de data/model drift.
+- Frontend web interactivo con gráficos.
+- Batch prediction para múltiples canales.

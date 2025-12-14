@@ -81,12 +81,27 @@ Para notebooks:
     cd CEIA-mlops
     ```
 
-###  Step 1: Inicializar el entorno (recomendado)
+###  Step 1: Inicializar el entorno (recomendado) y el servicio
 El proyecto incluye un script setup.sh que configura todo el entorno automáticamente:
 
     ```bash
     ./setup.sh
     ```
+
+En la carpeta raíz de este repositorio, correr el siguiente comando para inicializar el servicio completo utilizando Docker Compose:
+
+```bash
+docker compose up postgres -d
+```
+
+Importante para Windows: Asegurarse de tener Docker Desktop ejecutándose.
+
+Para asegurarte de que todos los servicios estén en estado *healthy*, revisa en Docker Desktop o escribe el comando:
+
+```bash
+docker ps -a
+```
+
 
 ###  Step 2: Ejecutar ETL y entrenamiento
 

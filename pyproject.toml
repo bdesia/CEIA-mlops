@@ -17,6 +17,8 @@ deap = "^1.4.3"
 scikit-learn = "^1.7.2"
 torch = {version = "2.6.0+cpu", source = "pytorch-cpu"}
 dotenv = "^0.9.9"
+mlflow = "^3.7.0"
+awswrangler = "^3.14.0"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.31.0"

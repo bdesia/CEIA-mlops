@@ -1,4 +1,3 @@
-
 # ----------------------------------------------------------------
 # DAG: Diametral Deformation of CNE NPP fuel channels - ETL process (OPTIMIZED v2)
 # ----------------------------------------------------------------
@@ -6,10 +5,6 @@ import os
 from datetime import timedelta
 from airflow.decorators import dag, task
 from airflow.utils.dates import days_ago
-import tempfile
-import io
-import zipfile
-import requests
 
 # ----------------------------------------------------------------
 # Configuración general
@@ -20,7 +15,7 @@ default_args = {
     'schedule_interval': None,
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
-    'dagrun_timeout': timedelta(minutes=60),  # Aumentado por descarga grande
+    'dagrun_timeout': timedelta(minutes=60),
 }
 
 md_text = """
@@ -35,7 +30,6 @@ Full Pipeline:
 - Generate channel_list.csv for easy channel selection in DataLoader
 """
 
-# Directories inside S3 bucket
 S3_BASE_PATH = "s3://data/"
 RAW_DATA_PATH = os.path.join(S3_BASE_PATH, "raw/")
 INTERIM_PATH = os.path.join(S3_BASE_PATH, "interim/")
@@ -65,6 +59,7 @@ def etl_pipeline():
         import zipfile
         import io
         import awswrangler as wr
+        import os
         from pathlib import Path
 
         ZIP_URL = "https://github.com/jern10/CEIA-mlops/archive/amq2-main.zip"
@@ -127,10 +122,12 @@ def etl_pipeline():
                 self.A = None
                 self.B = None
                 self.fitted = False
+
             def _model(self, x, A, B):
                 global_func = A * np.sin(np.pi * x)
                 local_func = B * (np.abs(np.sin(self.nbundles * np.pi * x))) ** (1 / self.kparam)
                 return global_func + local_func
+
             def fit(self, xdata, ydata):
                 p0 = np.max(ydata) * np.array([1.03, 0.4])
                 bounds = ([0.9 * p0[0], 0.2 * p0[1]], [1.5 * p0[0], 1.1 * p0[1]])
@@ -141,6 +138,7 @@ def etl_pipeline():
                 except Exception as e:
                     warnings.warn(f"Curve fit failed: {e}")
                     self.fitted = False
+
             def predict(self, xdata):
                 if not self.fitted:
                     raise RuntimeError("Model not fitted")
@@ -199,7 +197,6 @@ def etl_pipeline():
         years = evaluation_time_efph / (24 * 365.25)
         channel_data = wr.s3.read_csv(f"{raw_data_path}channel_data.csv")
 
-        # --- Procesar diámetro y espesor ---
         folder_diam = f"{raw_data_path}isi2024/diameter/"
         folder_thick = f"{raw_data_path}isi2024/thickness/"
         diam_files = wr.s3.list_objects(folder_diam)
@@ -245,7 +242,6 @@ def etl_pipeline():
             })
             df['Axial_m'] = (df['Axial'] - bm) / 1000.0
 
-            # --- Enriquecimiento ---
             pt_path = f"{raw_data_path}pressure_temperature/canales_BOL/{ch}.pt"
             flux_path = f"{interim_path}flux/pressure_tubes_extended/{ch}.flx"
             pt_df = wr.s3.read_csv(pt_path, sep='\t')
@@ -276,12 +272,10 @@ def etl_pipeline():
             df['Flux'] = F
             df['Channel'] = ch
 
-            # Guardar por canal
             wr.s3.to_csv(df, f"{processed_path}by_channel/{ch}.csv", index=False)
             full_dfs.append(df)
             processed_channels.append(ch)
 
-        # Guardar dataset completo
         if full_dfs:
             full_df = pd.concat(full_dfs, ignore_index=True)
             wr.s3.to_csv(full_df, f"{processed_path}full_dataset.csv", index=False)
@@ -355,24 +349,21 @@ def etl_pipeline():
             df = wr.s3.read_csv(f"{processed_path}by_channel/{ch}.csv")
             data_by_ch[ch] = df
 
-        # 1. data_by_ch.pkl
         pickle_path = "/tmp/data_by_ch.pkl"
         with open(pickle_path, "wb") as f:
             pickle.dump(data_by_ch, f)
         wr.s3.upload(local_file=pickle_path, path=f"{processed_path}model_compatible/data_by_ch.pkl")
 
-        # 2. Lista de canales para selector
         channel_df = pd.DataFrame(sorted(channel_list), columns=["channel"])
         wr.s3.to_csv(channel_df, f"{processed_path}model_compatible/channel_list.csv", index=False)
 
-        # 3. Parquet por canal (rápido para DataLoader personalizado)
         os.makedirs("/tmp/parquet_by_channel", exist_ok=True)
         for ch, df in data_by_ch.items():
             df.to_parquet(f"/tmp/parquet_by_channel/{ch}.parquet", index=False)
         wr.s3.upload(local_dir="/tmp/parquet_by_channel",
                      path=f"{processed_path}model_compatible/parquet_by_channel/")
 
-        print(f"Notebook-compatible data generado para {len(channel_list)} canales")
+        print(f"Model-compatible data generado para {len(channel_list)} canales")
         return f"{processed_path}model_compatible/data_by_ch.pkl"
 
     @task
@@ -406,7 +397,7 @@ def etl_pipeline():
     notebook_data = generate_model_compatible_data(processed_channels, PROCESSED_PATH)
     metadata = save_run_metadata(evaluation_time, split)
 
-    upload_task >> [flux_task, evaluation_time, processed_channels]
+    upload_task >> [flux_task, evaluation_time] >> processed_channels
     flux_task >> processed_channels
     evaluation_time >> processed_channels
     processed_channels >> split >> [ml_datasets, notebook_data] >> metadata

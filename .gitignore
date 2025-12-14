@@ -1,11 +1,19 @@
-.env
-__pycache__/
-*.pyc
-.venv/
-venv/
-
 airflow/logs/
 airflow/tmp/
 
 .vscode/
 *.log
+
+# Variables de entorno
+.env
+
+# Entornos virtuales
+.venv
+/.venv
+
+# Cache y temporales
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/

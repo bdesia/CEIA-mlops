@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "fc_cne_predictor"
+version = "0.1.0"
+description = ""
+authors = ["Braian Desia"]
+readme = "README.md"
+
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = ">=2.3.2,<3.0.0"
+matplotlib = ">=3.10.6,<4.0.0"
+pandas = ">=2.3.2,<3.0.0"
+optuna = "^4.5.0"
+deap = "^1.4.3"
+scikit-learn = "^1.7.2"
+torch = {version = "2.6.0+cpu", source = "pytorch-cpu"}
+dotenv = "^0.9.9"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.31.0"
+jupyterlab = "^4.2.0"
+jupyterlab-widgets = "3.0.13"
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "supplemental"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
